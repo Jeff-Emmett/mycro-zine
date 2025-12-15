@@ -85,32 +85,33 @@ const imagePrompt = getImagePrompt({
 
 ## Print Layout
 
-The output is a single PNG image with all 8 pages arranged in reading order:
+The output is a single PNG image arranged for traditional mini-zine folding:
 
 ```
-┌─────────────┬─────────────┐
-│   Page 1    │   Page 2    │  Row 1
-├─────────────┼─────────────┤
-│   Page 3    │   Page 4    │  Row 2
-├─────────────┼─────────────┤
-│   Page 5    │   Page 6    │  Row 3
-├─────────────┼─────────────┤
-│   Page 7    │   Page 8    │  Row 4
-└─────────────┴─────────────┘
+┌──────────┬──────────┬──────────┬──────────┐
+│    1↺    │    8↺    │    7↺    │    6↺    │  Top row (upside down)
+│  (cover) │  (cta)   │          │          │
+├──────────┼──────────┼──────────┼──────────┤
+│    2     │    3     │    4     │    5     │  Bottom row (right side up)
+│          │          │          │          │
+└──────────┴──────────┴──────────┴──────────┘
 
-Panel size: 4.25" x 2.75" (~10.8cm x 7cm)
-Total: 8.5" x 11" at 300 DPI (2550 x 3300 pixels)
+Paper: 11" x 8.5" landscape (US Letter rotated)
+Panel size: 7cm x 10.8cm (~2.76" x 4.25")
+Total: 3300 x 2550 pixels at 300 DPI
 ```
 
 ## Folding Instructions
 
 After printing, fold your zine:
 
-1. **Accordion fold**: Fold the paper in half horizontally (hamburger style)
-2. **Fold again**: Fold in half vertically (hotdog style)
-3. **One more fold**: Fold in half again
-4. **Cut center**: Unfold completely, cut a slit along the center fold
-5. **Push and fold**: Push through the center to create the booklet
+1. **Fold in half** along the long edge (hotdog fold) - brings top row to bottom
+2. **Fold in half again** along the short edge
+3. **Fold once more** to create a small booklet shape
+4. **Unfold completely** and lay flat
+5. **Cut the center slit** - cut along the middle crease between pages 3-6 and 4-5
+6. **Refold and push** - fold hotdog style, then push the ends together so the cut opens into a booklet
+7. **Flatten** - pages should now be in order 1→2→3→4→5→6→7→8
 
 ## Examples
 

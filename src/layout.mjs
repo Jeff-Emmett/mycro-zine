@@ -1,10 +1,16 @@
 /**
  * MycroZine Layout Generator
  *
- * Creates a print-ready layout with all 8 pages on a single 8.5" x 11" sheet.
- * Layout: 2 columns x 4 rows (reading order: left-to-right, top-to-bottom)
+ * Creates a print-ready layout with all 8 pages on a single sheet.
+ * Traditional 8-page mini-zine format for fold-and-cut assembly.
  *
- * Panel size: 4.25" x 2.75" (~10.8cm x 7cm)
+ * Paper: Landscape 11" x 8.5" (US Letter rotated)
+ * Layout: 4 columns x 2 rows
+ * Panel size: 7cm x 10.8cm (~2.76" x 4.25")
+ *
+ * Page arrangement for proper folding:
+ *   Top row (upside down):    1, 8, 7, 6
+ *   Bottom row (right side up): 2, 3, 4, 5
  */
 
 import sharp from 'sharp';
@@ -14,21 +20,30 @@ import fs from 'fs/promises';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// 8.5" x 11" at 300 DPI = 2550 x 3300 pixels
-const PAGE_WIDTH = 2550;
-const PAGE_HEIGHT = 3300;
+// 11" x 8.5" at 300 DPI = 3300 x 2550 pixels (landscape)
+const PAGE_WIDTH = 3300;
+const PAGE_HEIGHT = 2550;
 
-// Layout configuration: 2 columns x 4 rows
-const COLS = 2;
-const ROWS = 4;
-const PANEL_WIDTH = Math.floor(PAGE_WIDTH / COLS);   // 1275 pixels
-const PANEL_HEIGHT = Math.floor(PAGE_HEIGHT / ROWS); // 825 pixels
+// Layout configuration: 4 columns x 2 rows
+const COLS = 4;
+const ROWS = 2;
+
+// Panel size: 7cm x 10.8cm at 300 DPI
+// 7cm = 2.756" = 827 pixels, 10.8cm = 4.252" = 1275 pixels
+const PANEL_WIDTH = Math.floor(PAGE_WIDTH / COLS);   // 825 pixels (~7cm)
+const PANEL_HEIGHT = Math.floor(PAGE_HEIGHT / ROWS); // 1275 pixels (~10.8cm)
+
+// Page order for traditional mini-zine folding
+// Top row (rotated 180°): pages 1, 8, 7, 6 (left to right)
+// Bottom row (normal): pages 2, 3, 4, 5 (left to right)
+const TOP_ROW_PAGES = [0, 7, 6, 5];    // 0-indexed: pages 1, 8, 7, 6
+const BOTTOM_ROW_PAGES = [1, 2, 3, 4]; // 0-indexed: pages 2, 3, 4, 5
 
 /**
  * Create a print-ready zine layout from 8 page images
  *
  * @param {Object} options - Layout options
- * @param {string[]} options.pages - Array of 8 page image paths (in order)
+ * @param {string[]} options.pages - Array of 8 page image paths (in order: 1-8)
  * @param {string} [options.outputPath] - Output file path (default: output/mycrozine_print.png)
  * @param {string} [options.background] - Background color (default: '#ffffff')
  * @returns {Promise<string>} - Path to generated print layout
@@ -47,7 +62,7 @@ export async function createPrintLayout(options) {
   // Ensure output directory exists
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
-  // Load and resize all pages to panel size
+  // Load and resize all pages to panel size (7cm x 10.8cm)
   const resizedPages = await Promise.all(
     pages.map(async (pagePath) => {
       return sharp(pagePath)
@@ -59,17 +74,35 @@ export async function createPrintLayout(options) {
     })
   );
 
-  // Build composite array for all 8 pages in reading order
+  // Rotate top row pages 180 degrees (they need to be upside down)
+  const rotatedTopPages = await Promise.all(
+    TOP_ROW_PAGES.map(async (pageIndex) => {
+      return sharp(resizedPages[pageIndex])
+        .rotate(180)
+        .toBuffer();
+    })
+  );
+
+  // Build composite array with proper page arrangement
   const compositeImages = [];
-  for (let row = 0; row < ROWS; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const pageIndex = row * COLS + col; // 0-7
-      compositeImages.push({
-        input: resizedPages[pageIndex],
-        left: col * PANEL_WIDTH,
-        top: row * PANEL_HEIGHT
-      });
-    }
+
+  // Top row: pages 1, 8, 7, 6 (rotated 180°)
+  for (let col = 0; col < COLS; col++) {
+    compositeImages.push({
+      input: rotatedTopPages[col],
+      left: col * PANEL_WIDTH,
+      top: 0
+    });
+  }
+
+  // Bottom row: pages 2, 3, 4, 5 (normal orientation)
+  for (let col = 0; col < COLS; col++) {
+    const pageIndex = BOTTOM_ROW_PAGES[col];
+    compositeImages.push({
+      input: resizedPages[pageIndex],
+      left: col * PANEL_WIDTH,
+      top: PANEL_HEIGHT
+    });
   }
 
   // Create the final composite image
@@ -86,8 +119,9 @@ export async function createPrintLayout(options) {
     .toFile(outputPath);
 
   console.log(`Created print layout: ${outputPath}`);
-  console.log(`  Dimensions: ${PAGE_WIDTH}x${PAGE_HEIGHT} pixels (8.5"x11" @ 300 DPI)`);
-  console.log(`  Panel size: ${PANEL_WIDTH}x${PANEL_HEIGHT} pixels (${COLS}x${ROWS} grid)`);
+  console.log(`  Dimensions: ${PAGE_WIDTH}x${PAGE_HEIGHT} pixels (11"x8.5" landscape @ 300 DPI)`);
+  console.log(`  Panel size: ${PANEL_WIDTH}x${PANEL_HEIGHT} pixels (7cm x 10.8cm)`);
+  console.log(`  Layout: Top row [1↺, 8↺, 7↺, 6↺] | Bottom row [2, 3, 4, 5]`);
 
   return outputPath;
 }

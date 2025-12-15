@@ -30,23 +30,24 @@ export const DEFAULTS = {
 
 /**
  * Page dimensions in pixels at 300 DPI
+ * Paper is landscape orientation for traditional mini-zine folding
  */
 export const DIMENSIONS = {
   letter: {
-    width: 2550,  // 8.5" x 300
-    height: 3300, // 11" x 300
-    panelWidth: 1275,  // width / 2 cols
-    panelHeight: 825,  // height / 4 rows
-    panelCols: 2,
-    panelRows: 4
+    width: 3300,   // 11" x 300 (landscape)
+    height: 2550,  // 8.5" x 300
+    panelWidth: 825,   // ~7cm (width / 4 cols)
+    panelHeight: 1275, // ~10.8cm (height / 2 rows)
+    panelCols: 4,
+    panelRows: 2
   },
   a4: {
-    width: 2480,  // 210mm at 300 DPI
-    height: 3508, // 297mm at 300 DPI
-    panelWidth: 1240,
-    panelHeight: 877,
-    panelCols: 2,
-    panelRows: 4
+    width: 3508,   // 297mm at 300 DPI (landscape)
+    height: 2480,  // 210mm at 300 DPI
+    panelWidth: 877,
+    panelHeight: 1240,
+    panelCols: 4,
+    panelRows: 2
   }
 };
 
