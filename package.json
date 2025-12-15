@@ -1,0 +1,38 @@
+{
+  "name": "mycro-zine",
+  "version": "1.0.0",
+  "description": "8-page mini-zine generator utilities for print-ready zine layouts",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./layout": "./src/layout.mjs",
+    "./prompts": "./src/prompts.mjs"
+  },
+  "scripts": {
+    "layout": "node src/layout.mjs",
+    "example": "node src/layout.mjs examples/undernet/undernet_zine_p1_cover.png examples/undernet/undernet_zine_p2_what.png examples/undernet/undernet_zine_p3_metacelium.png examples/undernet/undernet_zine_p4_privacy.png examples/undernet/undernet_zine_p5_threepunks.png examples/undernet/undernet_zine_p6_techstack.png examples/undernet/undernet_zine_p7_philosophy.png examples/undernet/undernet_zine_p8_cta.png"
+  },
+  "keywords": [
+    "zine",
+    "mycrozine",
+    "mini-zine",
+    "print",
+    "layout",
+    "punk",
+    "diy",
+    "generator"
+  ],
+  "author": "Jeff Emmett",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.34.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@gitea.jeffemmett.com:jeffemmett/mycro-zine.git"
+  }
+}
