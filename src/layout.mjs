@@ -40,20 +40,40 @@ const TOP_ROW_PAGES = [0, 7, 6, 5];    // 0-indexed: pages 1, 8, 7, 6
 const BOTTOM_ROW_PAGES = [1, 2, 3, 4]; // 0-indexed: pages 2, 3, 4, 5
 
 /**
+ * Generate a timestamped filename for the print layout
+ * @param {string} [zineName] - Optional zine name to include in filename
+ * @returns {string} - Timestamped filename
+ */
+function generatePrintFilename(zineName = 'mycrozine') {
+  const timestamp = new Date().toISOString()
+    .replace(/T/, '_')
+    .replace(/:/g, '-')
+    .replace(/\..+/, '');
+  const safeName = zineName.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+  return `${safeName}_print_${timestamp}.png`;
+}
+
+/**
  * Create a print-ready zine layout from 8 page images
  *
  * @param {Object} options - Layout options
  * @param {string[]} options.pages - Array of 8 page image paths (in order: 1-8)
- * @param {string} [options.outputPath] - Output file path (default: output/mycrozine_print.png)
+ * @param {string} [options.outputPath] - Output file path (auto-generated with timestamp if not provided)
+ * @param {string} [options.zineName] - Zine name for generated filename (default: 'mycrozine')
  * @param {string} [options.background] - Background color (default: '#ffffff')
  * @returns {Promise<string>} - Path to generated print layout
  */
 export async function createPrintLayout(options) {
   const {
     pages,
-    outputPath = path.join(__dirname, '..', 'output', 'mycrozine_print.png'),
+    zineName = 'mycrozine',
     background = '#ffffff'
   } = options;
+
+  // Use provided outputPath or generate timestamped filename
+  const outputPath = options.outputPath || path.join(
+    __dirname, '..', 'output', generatePrintFilename(zineName)
+  );
 
   if (!pages || pages.length !== 8) {
     throw new Error('Exactly 8 page images are required');
@@ -128,18 +148,43 @@ export async function createPrintLayout(options) {
 
 /**
  * CLI entry point
- * Usage: node layout.mjs <page1> <page2> ... <page8> [--output <path>]
+ * Usage: node layout.mjs <page1> <page2> ... <page8> [--output <path>] [--name <zineName>]
  */
 async function main() {
   const args = process.argv.slice(2);
 
+  // Show help
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+MycroZine Layout Generator
+Creates a print-ready layout with all 8 pages on a single 11"x8.5" sheet.
+
+Usage:
+  node layout.mjs page1.png page2.png ... page8.png [options]
+
+Options:
+  --output, -o <path>   Output file path (default: auto-generated with timestamp)
+  --name, -n <name>     Zine name for auto-generated filename (default: mycrozine)
+  --help, -h            Show this help message
+
+Examples:
+  node layout.mjs p1.png p2.png p3.png p4.png p5.png p6.png p7.png p8.png
+  node layout.mjs p*.png --name "undernet"
+  node layout.mjs p*.png --output my_zine_print.png
+`);
+    process.exit(0);
+  }
+
   // Parse arguments
   let pages = [];
   let outputPath = null;
+  let zineName = 'mycrozine';
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--output' || args[i] === '-o') {
       outputPath = args[++i];
+    } else if (args[i] === '--name' || args[i] === '-n') {
+      zineName = args[++i];
     } else if (!args[i].startsWith('-')) {
       pages.push(args[i]);
     }
@@ -161,6 +206,11 @@ async function main() {
         console.log('  Or place 8 pages named undernet_zine_p1.png through p8.png in examples/undernet/');
         process.exit(1);
       }
+
+      // Use 'undernet' as default zine name when using example files
+      if (zineName === 'mycrozine') {
+        zineName = 'undernet';
+      }
     } catch (e) {
       console.log('Usage: node layout.mjs page1.png page2.png ... page8.png [--output path]');
       process.exit(1);
@@ -172,13 +222,14 @@ async function main() {
     process.exit(1);
   }
 
-  const options = { pages };
+  const options = { pages, zineName };
   if (outputPath) {
     options.outputPath = outputPath;
   }
 
   try {
-    await createPrintLayout(options);
+    const result = await createPrintLayout(options);
+    console.log(`\nPrint file saved to: ${result}`);
   } catch (error) {
     console.error('Error creating layout:', error.message);
     process.exit(1);
