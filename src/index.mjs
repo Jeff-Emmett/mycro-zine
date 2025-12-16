@@ -16,6 +16,12 @@ export {
   getImagePrompt,
   getIdeationPrompt
 } from './prompts.mjs';
+export {
+  generateQRCode,
+  generateQRCodeDataURL,
+  generateZineQRCodes,
+  generateUndernetQRCodes
+} from './qrcode.mjs';
 
 /**
  * Zine configuration defaults
