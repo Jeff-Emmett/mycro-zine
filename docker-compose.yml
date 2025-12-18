@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mycrozine-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - GEMINI_API_KEY=${GEMINI_API_KEY}
+        - NEXT_PUBLIC_APP_URL=https://zine.jeffemmett.com
+    container_name: mycrozine-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_APP_URL=https://zine.jeffemmett.com
+      - DATA_DIR=/app/data
+    volumes:
+      - zine-data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mycrozine.rule=Host(`zine.jeffemmett.com`)"
+      - "traefik.http.routers.mycrozine.entrypoints=web"
+      - "traefik.http.services.mycrozine.loadbalancer.server.port=3000"
+      # HTTPS redirect (if using HTTPS entrypoint)
+      - "traefik.http.routers.mycrozine-secure.rule=Host(`zine.jeffemmett.com`)"
+      - "traefik.http.routers.mycrozine-secure.entrypoints=websecure"
+      - "traefik.http.routers.mycrozine-secure.tls=true"
+    networks:
+      - traefik-public
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  zine-data:
+    driver: local
+
+networks:
+  traefik-public:
+    external: true

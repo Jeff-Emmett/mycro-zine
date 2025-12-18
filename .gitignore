@@ -25,3 +25,14 @@ npm-debug.log*
 # Build artifacts
 dist/
 build/
+
+# Next.js
+web/.next/
+web/out/
+web/node_modules/
+
+# Data storage (user zines)
+data/zines/
+
+# Docker
+.docker/

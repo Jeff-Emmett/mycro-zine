@@ -127,6 +127,62 @@ See the `examples/undernet/` directory for a complete 8-page zine about The Unde
 | `retro` | 1970s aesthetic, earth tones, groovy typography, halftone patterns |
 | `academic` | Diagram-heavy, annotated illustrations, infographic elements |
 
+## Web App
+
+MycroZine includes a full web application at `zine.jeffemmett.com` that allows anyone to create zines through a browser interface.
+
+### Features
+
+- **Text or voice input** - Describe your zine concept naturally
+- **AI-powered generation** - Gemini generates outlines and page images
+- **Interactive refinement** - Adjust any page with feedback
+- **Shareable links** - Share your zine with a unique URL
+- **Print-ready download** - 300 DPI PNG for home printing
+
+### Local Development
+
+```bash
+# Install web dependencies
+npm run web:install
+
+# Create .env.local in web/ directory
+cp web/.env.example web/.env.local
+# Edit web/.env.local and add your GEMINI_API_KEY
+
+# Start development server
+npm run web:dev
+```
+
+Visit `http://localhost:3000` to use the app locally.
+
+### Docker Deployment
+
+```bash
+# Build and start the container
+GEMINI_API_KEY=your-key docker compose up -d --build
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+The docker-compose.yml includes Traefik labels for automatic HTTPS routing.
+
+### Deployment to Netcup
+
+1. Push to Gitea: `git push origin main`
+2. SSH to Netcup: `ssh netcup`
+3. Pull and deploy:
+   ```bash
+   cd /opt/websites/mycro-zine
+   git pull
+   export GEMINI_API_KEY=$(cat ~/.gemini_credentials)
+   docker compose up -d --build
+   ```
+4. Add to Cloudflare tunnel if not already configured
+
 ## Integration with Gemini MCP
 
 This library is designed to work with the [Gemini MCP Server](https://github.com/jeffemmett/gemini-mcp) for AI-powered content and image generation:
