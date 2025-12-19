@@ -11,6 +11,7 @@ services:
     environment:
       - NODE_ENV=production
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_PROXY_URL=https://gemini-proxy.jeffemmett.workers.dev
       - NEXT_PUBLIC_APP_URL=https://zine.jeffemmett.com
       - DATA_DIR=/app/data
     volumes:
