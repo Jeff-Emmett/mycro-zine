@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       pageNumber,
-      imageUrl: `/api/zine/${zineId}/image/p${pageNumber}.png`,
+      imageUrl: `/api/zine/${zineId}?image=p${pageNumber}`,
       success: true,
     });
   } catch (error) {
