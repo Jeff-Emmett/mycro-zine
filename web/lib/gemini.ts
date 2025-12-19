@@ -1,6 +1,18 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Lazy initialization to ensure runtime env var is used (not build-time)
+let _genAI: GoogleGenerativeAI | null = null;
+
+function getGenAI(): GoogleGenerativeAI {
+  if (!_genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is not set");
+    }
+    _genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return _genAI;
+}
 
 export interface PageOutline {
   pageNumber: number;
@@ -39,7 +51,7 @@ export async function generateOutline(
   style: string,
   tone: string
 ): Promise<PageOutline[]> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `You are creating an 8-page mycro-zine (mini DIY zine that folds from a single sheet of paper).
 
@@ -92,7 +104,7 @@ export async function generatePageImage(
   feedback?: string
 ): Promise<string> {
   // Use Gemini's image generation (Imagen 3 via Gemini API)
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
   const styleDesc = STYLE_PROMPTS[style] || STYLE_PROMPTS["punk-zine"];
   const toneDesc = TONE_PROMPTS[tone] || TONE_PROMPTS["rebellious"];
@@ -148,7 +160,7 @@ export async function regeneratePageWithFeedback(
   style: string,
   tone: string
 ): Promise<{ updatedOutline: PageOutline; imageUrl: string }> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
 
   // First, update the outline based on feedback
   const prompt = `You are refining a zine page based on user feedback.
