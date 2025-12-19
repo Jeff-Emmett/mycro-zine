@@ -1,0 +1,7 @@
+name = "gemini-proxy"
+main = "gemini-proxy.js"
+compatibility_date = "2024-01-01"
+
+# Workers run at edge globally, requests from US users will hit US edge
+[placement]
+mode = "smart"

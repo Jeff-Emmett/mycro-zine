@@ -119,38 +119,47 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
 }
 
 // Gemini 2.0 Flash with native image generation (Nano Banana)
+// Uses Cloudflare Worker proxy to bypass geo-restrictions
 async function generateWithGemini2FlashImage(prompt: string, apiKey: string): Promise<string | null> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `Generate an image: ${prompt}`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
+  // Use the Cloudflare Worker proxy to route through US
+  const proxyUrl = process.env.GEMINI_PROXY_URL || "https://gemini-proxy.jeffemmett.workers.dev";
+
+  const response = await fetch(proxyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify({
+      model: "gemini-2.0-flash-exp",
+      contents: [
+        {
+          parts: [
+            {
+              text: `Generate an image: ${prompt}`,
+            },
+          ],
         },
-      }),
-    }
-  );
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Gemini 2.0 Flash API error:", response.status, errorText);
+    console.error("Gemini proxy API error:", response.status, errorText);
     return null;
   }
 
   const data = await response.json();
+
+  // Check for API errors in response
+  if (data.error) {
+    console.error("Gemini API error via proxy:", data.error);
+    return null;
+  }
 
   // Extract image from response
   const parts = data.candidates?.[0]?.content?.parts || [];
