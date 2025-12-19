@@ -101,8 +101,83 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
     throw new Error("GEMINI_API_KEY not configured");
   }
 
-  // Use Gemini's Imagen 3 API for image generation
-  // API endpoint for image generation
+  // Primary: Use Nano Banana Pro (gemini-2.0-flash-exp-image-generation)
+  // This provides highest quality image generation with advanced text rendering
+  try {
+    const nanoBananaResult = await generateWithNanoBananaPro(prompt, apiKey);
+    if (nanoBananaResult) {
+      console.log("✅ Generated image with Nano Banana Pro");
+      return nanoBananaResult;
+    }
+  } catch (error) {
+    console.error("Nano Banana Pro error, trying fallback:", error);
+  }
+
+  // Fallback: Try Imagen 3
+  try {
+    const imagenResult = await generateWithImagen3(prompt, apiKey);
+    if (imagenResult) {
+      console.log("✅ Generated image with Imagen 3");
+      return imagenResult;
+    }
+  } catch (error) {
+    console.error("Imagen 3 error, trying final fallback:", error);
+  }
+
+  // Final fallback: Gemini 2.0 Flash experimental
+  return await generateWithGemini2Flash(prompt, apiKey);
+}
+
+// Nano Banana Pro - highest quality, up to 4K, excellent text rendering
+async function generateWithNanoBananaPro(prompt: string, apiKey: string): Promise<string | null> {
+  // Nano Banana Pro uses gemini-2.0-flash-exp-image-generation model
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          // 3:4 aspect ratio for zine pages (portrait)
+          // Resolution hint for higher quality output
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Nano Banana Pro API error:", response.status, errorText);
+    return null;
+  }
+
+  const data = await response.json();
+
+  // Extract image from response
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  for (const part of parts) {
+    if (part.inlineData?.mimeType?.startsWith("image/")) {
+      return part.inlineData.data;
+    }
+  }
+
+  return null;
+}
+
+// Imagen 3 fallback
+async function generateWithImagen3(prompt: string, apiKey: string): Promise<string | null> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`,
     {
@@ -124,10 +199,8 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Imagen API error:", errorText);
-
-    // Fallback to Gemini 2.0 Flash experimental image generation
-    return await generateImageWithGemini2(prompt);
+    console.error("Imagen 3 API error:", response.status, errorText);
+    return null;
   }
 
   const data = await response.json();
@@ -136,13 +209,11 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
     return data.predictions[0].bytesBase64Encoded;
   }
 
-  throw new Error("No image data in response");
+  return null;
 }
 
-async function generateImageWithGemini2(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  // Try Gemini 2.0 Flash with image generation capability
+// Gemini 2.0 Flash experimental fallback
+async function generateWithGemini2Flash(prompt: string, apiKey: string): Promise<string> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
     {
@@ -170,9 +241,7 @@ async function generateImageWithGemini2(prompt: string): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Gemini 2.0 image error:", errorText);
-
-    // Return a placeholder for development
+    console.error("Gemini 2.0 Flash error:", response.status, errorText);
     return createPlaceholderImage(prompt);
   }
 
@@ -182,6 +251,7 @@ async function generateImageWithGemini2(prompt: string): Promise<string> {
   const parts = data.candidates?.[0]?.content?.parts || [];
   for (const part of parts) {
     if (part.inlineData?.mimeType?.startsWith("image/")) {
+      console.log("✅ Generated image with Gemini 2.0 Flash");
       return part.inlineData.data;
     }
   }

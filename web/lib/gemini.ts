@@ -39,7 +39,7 @@ export async function generateOutline(
   style: string,
   tone: string
 ): Promise<PageOutline[]> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `You are creating an 8-page mycro-zine (mini DIY zine that folds from a single sheet of paper).
 
@@ -148,7 +148,7 @@ export async function regeneratePageWithFeedback(
   style: string,
   tone: string
 ): Promise<{ updatedOutline: PageOutline; imageUrl: string }> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   // First, update the outline based on feedback
   const prompt = `You are refining a zine page based on user feedback.
