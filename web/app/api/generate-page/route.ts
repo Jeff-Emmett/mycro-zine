@@ -123,49 +123,105 @@ async function generateImageWithGemini(
 }
 
 // Gemini 2.0 Flash with native image generation (Nano Banana)
-// Uses Cloudflare Worker proxy to bypass geo-restrictions
+// Uses RunPod serverless proxy (US-based) to bypass geo-restrictions
 async function generateWithGemini2FlashImage(prompt: string, apiKey: string): Promise<string | null> {
-  // Use the Cloudflare Worker proxy to route through US
-  const proxyUrl = process.env.GEMINI_PROXY_URL || "https://gemini-proxy.jeffemmett.workers.dev";
+  // Use RunPod serverless endpoint (US-based) to bypass geo-restrictions
+  const runpodEndpointId = process.env.RUNPOD_GEMINI_ENDPOINT_ID || "ntqjz8cdsth42i";
+  const runpodApiKey = process.env.RUNPOD_API_KEY;
 
-  const response = await fetch(proxyUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey,
-    },
-    body: JSON.stringify({
-      model: "gemini-2.0-flash-exp",
-      contents: [
-        {
-          parts: [
+  if (!runpodApiKey) {
+    console.error("RUNPOD_API_KEY not configured, falling back to direct API");
+    return generateDirectGeminiImage(prompt, apiKey);
+  }
+
+  const runpodUrl = `https://api.runpod.ai/v2/${runpodEndpointId}/runsync`;
+
+  try {
+    const response = await fetch(runpodUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${runpodApiKey}`,
+      },
+      body: JSON.stringify({
+        input: {
+          api_key: apiKey,
+          model: "gemini-2.0-flash-exp",
+          contents: [
             {
-              text: `Generate an image: ${prompt}`,
+              parts: [
+                {
+                  text: `Generate an image: ${prompt}`,
+                },
+              ],
             },
           ],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
+          },
         },
-      ],
-      generationConfig: {
-        responseModalities: ["TEXT", "IMAGE"],
-      },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("RunPod API error:", response.status, errorText);
+      return null;
+    }
+
+    const result = await response.json();
+
+    // RunPod wraps the response in { output: ... }
+    const data = result.output || result;
+
+    // Check for errors
+    if (data.error) {
+      console.error("Gemini API error via RunPod:", data.error);
+      return null;
+    }
+
+    // Extract image from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData?.mimeType?.startsWith("image/")) {
+        console.log("✅ Generated image via RunPod proxy");
+        return part.inlineData.data;
+      }
+    }
+
+    console.error("No image in Gemini response via RunPod, parts:", JSON.stringify(parts).slice(0, 500));
+    return null;
+  } catch (error) {
+    console.error("RunPod request error:", error);
+    return null;
+  }
+}
+
+// Fallback: Try direct Gemini API (will fail in geo-restricted regions)
+async function generateDirectGeminiImage(prompt: string, apiKey: string): Promise<string | null> {
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+
+  const response = await fetch(geminiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: `Generate an image: ${prompt}` }] }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Gemini proxy API error:", response.status, errorText);
+    console.error("Direct Gemini API error:", response.status, errorText);
     return null;
   }
 
   const data = await response.json();
-
-  // Check for API errors in response
   if (data.error) {
-    console.error("Gemini API error via proxy:", data.error);
+    console.error("Gemini API error:", data.error);
     return null;
   }
 
-  // Extract image from response
   const parts = data.candidates?.[0]?.content?.parts || [];
   for (const part of parts) {
     if (part.inlineData?.mimeType?.startsWith("image/")) {
@@ -173,7 +229,6 @@ async function generateWithGemini2FlashImage(prompt: string, apiKey: string): Pr
     }
   }
 
-  console.error("No image in Gemini response, parts:", JSON.stringify(parts).slice(0, 500));
   return null;
 }
 
