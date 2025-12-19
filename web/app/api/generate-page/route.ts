@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     const fullPrompt = buildImagePrompt(pageOutline, stylePrompt, tonePrompt);
 
     // Generate image using Gemini Imagen API
-    // Note: This uses the MCP-style generation - in production, we'd call the Gemini API directly
-    const imageBase64 = await generateImageWithGemini(fullPrompt);
+    // Pass outline and style for styled fallback
+    const imageBase64 = await generateImageWithGemini(fullPrompt, pageOutline, style);
 
     // Save the page image
     const imagePath = await savePageImage(zineId, pageNumber, imageBase64);
@@ -95,7 +95,11 @@ IMPORTANT:
 - The design should work in print (high contrast, clear details)`;
 }
 
-async function generateImageWithGemini(prompt: string): Promise<string> {
+async function generateImageWithGemini(
+  prompt: string,
+  outline: PageOutline,
+  style: string
+): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY not configured");
@@ -113,9 +117,9 @@ async function generateImageWithGemini(prompt: string): Promise<string> {
     console.error("Gemini 2.0 Flash image generation error:", error);
   }
 
-  // Fallback: Create placeholder image
-  console.log("⚠️ Using placeholder image");
-  return createPlaceholderImage(prompt);
+  // Fallback: Create styled placeholder with actual content
+  console.log("⚠️ Using styled placeholder image for page", outline.pageNumber);
+  return createStyledPlaceholder(outline, style);
 }
 
 // Gemini 2.0 Flash with native image generation (Nano Banana)
@@ -173,8 +177,128 @@ async function generateWithGemini2FlashImage(prompt: string, apiKey: string): Pr
   return null;
 }
 
+// Create styled placeholder images with actual page content
+async function createStyledPlaceholder(
+  outline: PageOutline,
+  style: string
+): Promise<string> {
+  const sharp = (await import("sharp")).default;
+
+  // Escape XML special characters
+  const escapeXml = (str: string) =>
+    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const title = escapeXml(outline.title.slice(0, 40));
+  const keyPoints = outline.keyPoints.slice(0, 3).map((p) => escapeXml(p.slice(0, 50)));
+
+  // Style-specific colors and patterns
+  const styles: Record<string, { bg: string; fg: string; accent: string; pattern: string }> = {
+    "punk-zine": {
+      bg: "#ffffff",
+      fg: "#000000",
+      accent: "#ff0066",
+      pattern: `<pattern id="dots" patternUnits="userSpaceOnUse" width="20" height="20">
+        <circle cx="10" cy="10" r="2" fill="#000" opacity="0.3"/>
+      </pattern>`,
+    },
+    minimal: {
+      bg: "#fafafa",
+      fg: "#333333",
+      accent: "#0066ff",
+      pattern: "",
+    },
+    collage: {
+      bg: "#f5e6d3",
+      fg: "#2d2d2d",
+      accent: "#8b4513",
+      pattern: `<pattern id="paper" patternUnits="userSpaceOnUse" width="100" height="100">
+        <rect width="100" height="100" fill="#f5e6d3"/>
+        <rect x="0" y="0" width="50" height="50" fill="#ebe0d0" opacity="0.5"/>
+      </pattern>`,
+    },
+    retro: {
+      bg: "#fff8dc",
+      fg: "#8b4513",
+      accent: "#ff6347",
+      pattern: `<pattern id="halftone" patternUnits="userSpaceOnUse" width="8" height="8">
+        <circle cx="4" cy="4" r="1.5" fill="#8b4513" opacity="0.2"/>
+      </pattern>`,
+    },
+    academic: {
+      bg: "#ffffff",
+      fg: "#1a1a1a",
+      accent: "#0055aa",
+      pattern: `<pattern id="grid" patternUnits="userSpaceOnUse" width="40" height="40">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ddd" stroke-width="1"/>
+      </pattern>`,
+    },
+  };
+
+  const s = styles[style] || styles["punk-zine"];
+  const pageNum = outline.pageNumber;
+  const pageType = escapeXml(outline.type.toUpperCase());
+
+  const svg = `
+    <svg width="825" height="1275" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        ${s.pattern}
+        <style>
+          .title { font-family: 'Courier New', monospace; font-weight: bold; }
+          .body { font-family: 'Courier New', monospace; }
+          .accent { font-family: 'Courier New', monospace; font-weight: bold; }
+        </style>
+      </defs>
+
+      <!-- Background -->
+      <rect width="100%" height="100%" fill="${s.bg}"/>
+      ${s.pattern ? `<rect width="100%" height="100%" fill="url(#${s.pattern.match(/id="(\w+)"/)?.[1] || "dots"})"/>` : ""}
+
+      <!-- Border -->
+      <rect x="30" y="30" width="765" height="1215" fill="none" stroke="${s.fg}" stroke-width="4"/>
+      <rect x="40" y="40" width="745" height="1195" fill="none" stroke="${s.fg}" stroke-width="2"/>
+
+      <!-- Page number badge -->
+      <rect x="60" y="60" width="80" height="40" fill="${s.fg}"/>
+      <text x="100" y="88" text-anchor="middle" class="accent" font-size="24" fill="${s.bg}">P${pageNum}</text>
+
+      <!-- Page type -->
+      <text x="765" y="90" text-anchor="end" class="body" font-size="16" fill="${s.accent}">${pageType}</text>
+
+      <!-- Title -->
+      <text x="412" y="200" text-anchor="middle" class="title" font-size="48" fill="${s.fg}">${title}</text>
+
+      <!-- Decorative line -->
+      <line x1="150" y1="240" x2="675" y2="240" stroke="${s.accent}" stroke-width="3"/>
+
+      <!-- Key points -->
+      ${keyPoints
+        .map(
+          (point, i) => `
+        <rect x="100" y="${350 + i * 120}" width="625" height="80" fill="${s.bg}" stroke="${s.fg}" stroke-width="2" rx="5"/>
+        <text x="120" y="${400 + i * 120}" class="body" font-size="20" fill="${s.fg}">${point}${point.length >= 50 ? "..." : ""}</text>
+      `
+        )
+        .join("")}
+
+      <!-- Generation notice -->
+      <rect x="150" y="1050" width="525" height="100" fill="${s.accent}" opacity="0.1" rx="10"/>
+      <text x="412" y="1090" text-anchor="middle" class="body" font-size="18" fill="${s.fg}">✨ AI Image Generation</text>
+      <text x="412" y="1120" text-anchor="middle" class="body" font-size="14" fill="${s.fg}" opacity="0.7">Styled placeholder - image gen geo-restricted</text>
+
+      <!-- Corner decorations -->
+      <path d="M 30 130 L 30 30 L 130 30" fill="none" stroke="${s.accent}" stroke-width="4"/>
+      <path d="M 795 130 L 795 30 L 695 30" fill="none" stroke="${s.accent}" stroke-width="4"/>
+      <path d="M 30 1145 L 30 1245 L 130 1245" fill="none" stroke="${s.accent}" stroke-width="4"/>
+      <path d="M 795 1145 L 795 1245 L 695 1245" fill="none" stroke="${s.accent}" stroke-width="4"/>
+    </svg>
+  `;
+
+  const buffer = await sharp(Buffer.from(svg)).png().toBuffer();
+  return buffer.toString("base64");
+}
+
 async function createPlaceholderImage(prompt: string): Promise<string> {
-  // Create a simple placeholder image using sharp
+  // Simple fallback placeholder
   const sharp = (await import("sharp")).default;
 
   const svg = `
@@ -182,13 +306,10 @@ async function createPlaceholderImage(prompt: string): Promise<string> {
       <rect width="100%" height="100%" fill="#f0f0f0"/>
       <rect x="20" y="20" width="785" height="1235" fill="white" stroke="black" stroke-width="3"/>
       <text x="412" y="600" text-anchor="middle" font-family="Courier New" font-size="24" font-weight="bold">
-        [IMAGE PLACEHOLDER]
-      </text>
-      <text x="412" y="650" text-anchor="middle" font-family="Courier New" font-size="14">
-        ${prompt.slice(0, 50)}...
+        [ZINE PAGE]
       </text>
       <text x="412" y="700" text-anchor="middle" font-family="Courier New" font-size="12" fill="#666">
-        Image generation in progress
+        Image generation unavailable in EU region
       </text>
     </svg>
   `;

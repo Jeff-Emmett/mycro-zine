@@ -133,10 +133,13 @@ export default function CreatePage() {
 
         const data = await response.json();
 
+        // Add cache-busting timestamp to force image reload
+        const imageUrlWithTimestamp = `${data.imageUrl}&t=${Date.now()}`;
+
         setState((s) => {
           if (!s) return s;
           const newPages = [...s.pages];
-          newPages[i - 1] = data.imageUrl;
+          newPages[i - 1] = imageUrlWithTimestamp;
           return { ...s, pages: newPages };
         });
       } catch (err) {
@@ -399,29 +402,90 @@ export default function CreatePage() {
         {/* Step 2: Page Generation */}
         {state.currentStep === "generate" && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold punk-text">
-              Generating Pages... {state.pages.filter((p) => p).length}/8
-            </h2>
+            <div className="text-center">
+              <h2 className="text-xl font-bold punk-text mb-2">
+                Generating Your Zine
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Page {state.generatingPage || state.pages.filter((p) => p).length} of 8
+              </p>
+            </div>
+
+            {/* Overall Progress Bar */}
+            <div className="punk-border bg-white p-4">
+              <div className="flex justify-between text-sm punk-text mb-2">
+                <span>Progress</span>
+                <span>{Math.round((state.pages.filter((p) => p).length / 8) * 100)}%</span>
+              </div>
+              <div className="h-4 bg-gray-200 punk-border overflow-hidden">
+                <div
+                  className="h-full bg-black transition-all duration-500 ease-out"
+                  style={{ width: `${(state.pages.filter((p) => p).length / 8) * 100}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                  <div
+                    key={num}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                      ${state.pages[num - 1] ? "bg-green-500 text-white" :
+                        state.generatingPage === num ? "bg-black text-white animate-pulse" :
+                        "bg-gray-200 text-gray-500"}`}
+                  >
+                    {state.pages[num - 1] ? <Check className="w-3 h-3" /> : num}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Current Page Being Generated */}
+            {state.generatingPage && (
+              <div className="punk-border bg-gray-50 p-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-20 bg-white punk-border flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold punk-text">
+                      {state.outline[state.generatingPage - 1]?.title}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {state.outline[state.generatingPage - 1]?.type} • Page {state.generatingPage}
+                    </p>
+                    <div className="mt-2 h-2 bg-gray-200 rounded overflow-hidden">
+                      <div className="h-full bg-green-500 animate-pulse" style={{ width: "60%" }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Thumbnail Grid */}
             <div className="grid grid-cols-4 gap-4">
               {state.outline.map((page, i) => (
                 <div
                   key={i}
-                  className={`aspect-[3/4] punk-border flex items-center justify-center
-                    ${state.pages[i] ? "bg-white" : "bg-gray-100"}`}
+                  className={`aspect-[3/4] punk-border flex items-center justify-center overflow-hidden
+                    ${state.pages[i] ? "bg-white" : "bg-gray-100"}
+                    ${state.generatingPage === i + 1 ? "ring-2 ring-green-500 ring-offset-2" : ""}`}
                 >
                   {state.pages[i] ? (
                     <img
                       src={state.pages[i]}
                       alt={`Page ${i + 1}`}
                       className="w-full h-full object-cover"
+                      onLoad={() => console.log(`Page ${i + 1} image loaded`)}
                     />
                   ) : state.generatingPage === i + 1 ? (
                     <div className="text-center p-2">
-                      <Loader2 className="w-8 h-8 mx-auto animate-spin mb-2" />
-                      <span className="text-xs punk-text">Page {i + 1}</span>
+                      <Loader2 className="w-8 h-8 mx-auto animate-spin mb-2 text-green-500" />
+                      <span className="text-xs punk-text font-bold">Generating...</span>
                     </div>
                   ) : (
-                    <span className="text-gray-400 punk-text">P{i + 1}</span>
+                    <div className="text-center">
+                      <span className="text-2xl text-gray-300 font-bold">P{i + 1}</span>
+                      <p className="text-xs text-gray-400 mt-1">Pending</p>
+                    </div>
                   )}
                 </div>
               ))}

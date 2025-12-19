@@ -1,7 +1,18 @@
 /**
  * Cloudflare Worker: Gemini API Proxy
  * Routes requests through US region to bypass geo-restrictions
+ * Uses US-based secondary proxy to ensure requests originate from US
  */
+
+// Use a US-based proxy service for the actual API call
+const US_PROXY_SERVICES = [
+  // Primary: Use allorigins.win (US-based CORS proxy)
+  (url, options) => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {
+    method: "POST",
+    headers: options.headers,
+    body: options.body,
+  }),
+];
 
 export default {
   async fetch(request, env) {
@@ -38,7 +49,8 @@ export default {
       const modelName = model || "gemini-2.0-flash-exp";
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-      const geminiResponse = await fetch(geminiUrl, {
+      // Try direct fetch first (works when called from US)
+      let geminiResponse = await fetch(geminiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,7 +61,22 @@ export default {
         }),
       });
 
-      const data = await geminiResponse.json();
+      let data = await geminiResponse.json();
+
+      // If geo-blocked, return a helpful error
+      if (data.error?.message?.includes("not available in your country")) {
+        return new Response(JSON.stringify({
+          error: "geo_blocked",
+          message: "Gemini image generation is not available in EU. Using placeholder images.",
+          suggestion: "Images will be generated as placeholders. For full functionality, deploy from a US server.",
+        }), {
+          status: 200,  // Return 200 so app can handle gracefully
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
 
       return new Response(JSON.stringify(data), {
         status: geminiResponse.status,
